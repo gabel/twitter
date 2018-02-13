@@ -1,5 +1,5 @@
 {
-	"name": "opauth/twitter",
+	"name": "gabel/opauth-twitter-proxy",
 	"description": "Twitter strategy for Opauth",
 	"keywords": ["authentication","auth","twitter"],
 	"homepage": "http://opauth.org",
