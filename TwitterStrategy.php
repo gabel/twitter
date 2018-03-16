@@ -54,6 +54,21 @@ class TwitterStrategy extends OpauthStrategy {
 		'streaming_metrics_interval'	=> 60,
 		'as_header'				  		=> true,
 	);
+
+    /**
+     * @var string
+     */
+	protected $algorithm = 'aes-256-ctr';
+
+    /**
+     * @var string
+     */
+	protected $key = '#654§"$t§w!i?t?t§e%#r!!jr7s98eadcsar74e86t';
+
+    /**
+     * @var string
+     */
+	protected $vector = '82335928043641986';
 	
 	public function __construct($strategy, $env) {
 		parent::__construct($strategy, $env);
@@ -69,35 +84,31 @@ class TwitterStrategy extends OpauthStrategy {
 	 * Auth request
 	 */
 	public function request() {
-		$params = array(
-			'oauth_callback' => $this->strategy['oauth_callback']
-		);
-		
-		$results =  $this->_request('POST', $this->strategy['request_token_url'], $params);
+        $params = array(
+            'oauth_callback' => $this->strategy['oauth_callback']
+        );
 
-		if ($results !== false && !empty($results['oauth_token']) && !empty($results['oauth_token_secret'])){
-            if (!session_id()) {
-                session_start();
-                setCookie('twitterSocialProvider', session_id(), time()+60, '/', '', true, true);
-            }
-			$_SESSION['_opauth_twitter'] = $results;
+        $results = $this->_request('POST', $this->strategy['request_token_url'], $params);
 
-			$this->_authorize($results['oauth_token']);
-		}
+        if ($results !== false && !empty($results['oauth_token']) && !empty($results['oauth_token_secret'])) {
+            $encryptedResult = openssl_encrypt($results, $this->algorithm, $this->key, 0, $this->vector);
+            $encryptedResult = base64_encode($encryptedResult);
+            setCookie('twitterSocialProvider', $encryptedResult, time() + 60, '/', '', true, true);
+
+            $this->_authorize($results['oauth_token']);
+        }
 	}
 
 	/**
 	 * Receives oauth_verifier, requests for access_token and redirect to callback
 	 */
 	public function oauth_callback() {
-        $sessionId = $_COOKIE['twitterSocialProvider'];
+        $encryptedResultCookie = $_COOKIE['twitterSocialProvider'];
         unset($_COOKIE['twitterSocialProvider']);
         setcookie('twitterSocialProvider', "", time() - 3600);
-        session_id($sessionId);
-        session_start();
-
-		$session = $_SESSION['_opauth_twitter'];
-		unset($_SESSION['_opauth_twitter']);
+        $storedResult = base64_decode($encryptedResultCookie);
+        $storedResult = openssl_decrypt($storedResult, $this->algorithm, $this->key, 0, $this->vector);
+		$session = $storedResult['_opauth_twitter'];
 
 		if (!empty($_REQUEST['oauth_token']) && $_REQUEST['oauth_token'] == $session['oauth_token']) {
 			$this->tmhOAuth->config['user_token'] = $session['oauth_token'];
